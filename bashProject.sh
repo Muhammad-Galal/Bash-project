@@ -120,12 +120,30 @@ num_columns=$(echo "$second_line" | tr -cd ',' | wc -c)
     new_id=$((last_id + 1))
     values="$new_id,"
 
-for (( i=1; i<=(($num_columns + 1)); i++ )); do
-  type=$(echo "$fields_excluding_first_field" | cut -d ',' -f $i | cut -d ':' -f 2)
-  col_name=$(echo "$second_line" | cut -d',' -f $i)
-  read -p "Enter value of column $col_name Type=$type: " value
-  echo "$value"
-  values="$values$value,"
+    
+while true; do
+  values=""
+  for (( i=1; i<=($num_columns+1); i++ )); do
+    col_name=$(echo "$second_line" | cut -d',' -f $i)
+    type=$(echo "$fields_excluding_first_field" | cut -d ',' -f $i | cut -d ':' -f 2)
+    while true; do
+      read -p "Enter value of column $col_name Type=$type: " value
+      if [[ $type == "string" ]] && [[ "$value" =~ ^[[:alpha:]]+$ ]]; then
+        values="$values$value,"
+        break
+      elif [[ $type == "integer" ]] && [[ "$value" =~ ^[0-9]+$ ]]; then
+        values="$values$value,"
+        break
+      else
+        echo "Wrong input. Please enter a value of type $type."
+      fi
+    done
+  done
+# Add the ID field value to the beginning of the values string
+        values="$new_id,$values"
+
+  echo "Record added successfully."
+  break
 done
 
 # Remove trailing comma from values string
@@ -218,33 +236,17 @@ read -p "enter your choice: " option
                             fi
                        done             
 
-  read -p "Enter the new value and the field number in the format:(new_value,field_number): " new_value
+  read -p "Enter the new value : " new_value
+  read -p "Enter the field number : " field_number
 
-# Split the input string into new value and field number
-            new_value_and_field=(${new_value//,/ })
-            new_val="${new_value_and_field[0]}"
-            field_number="${new_value_and_field[1]}"
-
-            echo "$new_val"
+            echo "$new_value"
             echo "$field_number"
-
-
-
-# Find the row to update
-row="$result"
-
-# Check if the row exists
-if [ -z "$row" ]; then
-    echo "Error: Row with ID $id_given_by_user not found in $table_file"
-    exit 1
-fi
-
-# Update the specified field in the row
-updated_row=$(echo "$row" | awk -v field_number="$field_number" -v new_value="$new_value" 'BEGIN{FS=OFS=","}{if(NR==1){print} else{if(NF>=field_number){$field_number=new_value}} print}')
-
-# Update the row in the file
-sed -i "s^\\^$row$^$updated_row^" "$table_file"
-echo "Row with ID $id_given_by_user updated with $new_value in field $field_number"
+            old_value=$(echo "$result" | cut -d "," -f $field_number) 
+            new_result=$(echo "$result" | sed "s/$old_value/$new_value/")
+            echo "$new_result" 
+         
+            line_number=$(grep -n "$result" $table_file | cut -d ":" -f 1)
+             sed -i "${line_number}s/.*/$new_result/" $table_file
 
 esac
 
